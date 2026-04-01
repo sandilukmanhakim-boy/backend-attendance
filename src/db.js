@@ -1,34 +1,52 @@
 const { Pool } = require("pg");
 
 /* =======================
-   CREATE POOL
+   VALIDASI ENV
+======================= */
+if (!process.env.DATABASE_URL) {
+    console.error("❌ DATABASE_URL belum diset!");
+}
+
+/* =======================
+   CREATE POOL (RAILWAY READY)
 ======================= */
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === "production"
-        ? { rejectUnauthorized: false }
-        : false,
 
-    // 🔥 OPTIMASI CONNECTION
+    // 🔥 WAJIB UNTUK RAILWAY
+    ssl: {
+        rejectUnauthorized: false,
+    },
+
+    // 🔥 OPTIMASI
     max: 10, // max koneksi
-    idleTimeoutMillis: 30000, // idle timeout
-    connectionTimeoutMillis: 10000, // timeout koneksi
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
 });
 
 /* =======================
-   TEST CONNECTION
+   RETRY CONNECTION (SMART)
 ======================= */
+let retryCount = 0;
+
 const connectDB = async () => {
     try {
         const client = await pool.connect();
         await client.query("SELECT NOW()");
         client.release();
 
-        console.log("✅ PostgreSQL Connected (Railway Ready)");
-    } catch (err) {
-        console.error("❌ DB Connection Error:", err.message);
+        console.log("✅ PostgreSQL Connected 🚀");
+        retryCount = 0;
 
-        // ⚠️ JANGAN langsung exit (biar Railway retry)
+    } catch (err) {
+        retryCount++;
+
+        console.error(
+            `❌ DB Connection Failed (retry ${retryCount}):`,
+            err.message
+        );
+
+        // ⏳ Retry tiap 5 detik
         setTimeout(connectDB, 5000);
     }
 };
@@ -39,14 +57,14 @@ const connectDB = async () => {
 connectDB();
 
 /* =======================
-   GLOBAL POOL ERROR
+   GLOBAL ERROR HANDLER
 ======================= */
 pool.on("error", (err) => {
     console.error("🔥 PostgreSQL Pool Error:", err.message);
 });
 
 /* =======================
-   SAFE QUERY WRAPPER (OPTIONAL 🔥)
+   SAFE QUERY WRAPPER
 ======================= */
 const query = async (text, params) => {
     try {
@@ -59,9 +77,22 @@ const query = async (text, params) => {
 };
 
 /* =======================
+   HEALTH CHECK (OPSIONAL 🔥)
+======================= */
+const healthCheck = async () => {
+    try {
+        await pool.query("SELECT 1");
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+/* =======================
    EXPORT
 ======================= */
 module.exports = {
     pool,
-    query, // pakai ini biar aman
+    query,
+    healthCheck,
 };
