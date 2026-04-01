@@ -1,10 +1,10 @@
 const db = require("../config/db");
 
-// ==========================
-// 📏 HITUNG JARAK (HAVERSINE)
-// ==========================
+/* ==========================
+   📏 HAVERSINE
+========================== */
 function getDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // meter
+    const R = 6371e3;
     const toRad = (x) => (x * Math.PI) / 180;
 
     const φ1 = toRad(lat1);
@@ -18,25 +18,25 @@ function getDistance(lat1, lon1, lat2, lon2) {
         Math.cos(φ2) *
         Math.sin(Δλ / 2) ** 2;
 
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// ==========================
-// 🧠 VALIDASI ANGKA
-// ==========================
+/* ==========================
+   🧠 VALIDASI
+========================== */
 function isValidNumber(val) {
-    return !isNaN(val) && isFinite(val);
+    return typeof val === "number" && !isNaN(val);
 }
 
-// ==========================
-// ✅ CHECK-IN
-// ==========================
+/* ==========================
+   📍 CHECK-IN
+========================== */
 exports.checkIn = async (req, res) => {
+    const client = await db.pool.connect();
+
     try {
         const employee_id = req.user?.id;
 
-        // 🔐 VALIDASI USER
         if (!employee_id) {
             return res.status(401).json({
                 success: false,
@@ -45,12 +45,9 @@ exports.checkIn = async (req, res) => {
         }
 
         let { latitude, longitude } = req.body;
-
-        // 🔄 CONVERT STRING → NUMBER
         latitude = parseFloat(latitude);
         longitude = parseFloat(longitude);
 
-        // 🔐 VALIDASI INPUT
         if (!req.file) {
             return res.status(400).json({
                 success: false,
@@ -65,62 +62,50 @@ exports.checkIn = async (req, res) => {
             });
         }
 
-        // 🏢 AMBIL DATA OFFICE
-        const officeRes = await db.query(`SELECT * FROM office LIMIT 1`);
+        await client.query("BEGIN");
 
+        // 🏢 OFFICE
+        const officeRes = await client.query(`SELECT * FROM office LIMIT 1`);
         if (officeRes.rows.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Data kantor belum ada",
-            });
+            throw new Error("Data kantor belum ada");
         }
 
         const office = officeRes.rows[0];
 
-        // 📏 HITUNG JARAK
         const distance = getDistance(
             latitude,
             longitude,
-            office.latitude,
-            office.longitude
+            parseFloat(office.latitude),
+            parseFloat(office.longitude)
         );
 
-        // 📍 VALIDASI RADIUS
-        if (distance > office.radius) {
-            return res.status(400).json({
-                success: false,
-                message: `Diluar jangkauan (${Math.round(distance)} meter)`,
-            });
+        if (distance > parseFloat(office.radius)) {
+            throw new Error(`Diluar jangkauan (${Math.round(distance)} meter)`);
         }
 
-        // 🔍 CEK SUDAH CHECK-IN
-        const existing = await db.query(
+        // 🔥 FIX TIMEZONE BENAR
+        const existing = await client.query(
             `SELECT id FROM attendance
        WHERE employee_id = $1
-       AND DATE(checkin_time) = CURRENT_DATE
-       AND checkout_time IS NULL`,
+       AND DATE(checkin_time AT TIME ZONE 'Asia/Jakarta') =
+           DATE(NOW() AT TIME ZONE 'Asia/Jakarta')
+       AND checkout_time IS NULL
+       FOR UPDATE`,
             [employee_id]
         );
 
         if (existing.rows.length > 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Sudah check-in hari ini",
-            });
+            throw new Error("Sudah check-in hari ini");
         }
 
-        // 💾 INSERT DATA
-        await db.query(
+        await client.query(
             `INSERT INTO attendance
-      (employee_id, latitude, longitude, photo, checkin_time)
-      VALUES ($1, $2, $3, $4, NOW())`,
-            [
-                employee_id,
-                latitude,
-                longitude,
-                req.file.path,
-            ]
+       (employee_id, latitude, longitude, photo, checkin_time)
+       VALUES ($1, $2, $3, $4, NOW())`,
+            [employee_id, latitude, longitude, req.file.filename]
         );
+
+        await client.query("COMMIT");
 
         return res.json({
             success: true,
@@ -128,23 +113,27 @@ exports.checkIn = async (req, res) => {
         });
 
     } catch (err) {
+        await client.query("ROLLBACK");
+
         console.error("🔥 CHECKIN ERROR:", err.message);
 
-        return res.status(500).json({
+        return res.status(400).json({
             success: false,
-            message: "Internal server error",
+            message: err.message,
         });
+
+    } finally {
+        client.release();
     }
 };
 
-// ==========================
-// 🔥 CHECK-OUT
-// ==========================
+/* ==========================
+   🔥 CHECK-OUT
+========================== */
 exports.checkOut = async (req, res) => {
     try {
         const employee_id = req.user?.id;
 
-        // 🔐 VALIDASI USER
         if (!employee_id) {
             return res.status(401).json({
                 success: false,
@@ -152,11 +141,11 @@ exports.checkOut = async (req, res) => {
             });
         }
 
-        // 🔍 CEK DATA HARI INI
         const result = await db.query(
             `SELECT id FROM attendance
        WHERE employee_id = $1
-       AND DATE(checkin_time) = CURRENT_DATE
+       AND DATE(checkin_time AT TIME ZONE 'Asia/Jakarta') =
+           DATE(NOW() AT TIME ZONE 'Asia/Jakarta')
        AND checkout_time IS NULL
        LIMIT 1`,
             [employee_id]
@@ -169,14 +158,11 @@ exports.checkOut = async (req, res) => {
             });
         }
 
-        const attendanceId = result.rows[0].id;
-
-        // 💾 UPDATE CHECKOUT
         await db.query(
             `UPDATE attendance
        SET checkout_time = NOW()
        WHERE id = $1`,
-            [attendanceId]
+            [result.rows[0].id]
         );
 
         return res.json({
@@ -189,7 +175,7 @@ exports.checkOut = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            message: "Internal server error",
+            message: err.message,
         });
     }
 };
