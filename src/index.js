@@ -4,62 +4,94 @@ const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
 
-// ✅ pastikan folder uploads ada
-if (!fs.existsSync("uploads")) {
-   fs.mkdirSync("uploads", { recursive: true });
-}
-
+// 🔥 INIT APP
 const app = express();
+
+/* =======================
+   TRUST PROXY (Railway)
+======================= */
+app.set("trust proxy", 1);
+
+/* =======================
+   ENSURE UPLOAD FOLDER
+======================= */
+const uploadDir = path.join(__dirname, "uploads");
+
+try {
+   if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+      console.log("📁 Folder uploads dibuat");
+   }
+} catch (err) {
+   console.error("❌ Gagal membuat folder uploads:", err);
+}
 
 /* =======================
    MIDDLEWARE
 ======================= */
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+   origin: "*", // bisa dikunci nanti ke domain app kamu
+   methods: ["GET", "POST", "PUT", "DELETE"],
+}));
+
+app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 /* =======================
    STATIC FILE
 ======================= */
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static(uploadDir));
+
+/* =======================
+   IMPORT ROUTES
+======================= */
+let officeRoutes, attendanceRoutes, authRoutes;
+
+try {
+   officeRoutes = require("./routes/officeRoutes");
+   attendanceRoutes = require("./routes/attendanceRoutes");
+   authRoutes = require("./routes/authRoutes");
+} catch (err) {
+   console.error("❌ Error load routes:", err);
+   process.exit(1);
+}
 
 /* =======================
    ROUTES
 ======================= */
-const officeRoutes = require("./routes/officeRoutes");
-const attendanceRoutes = require("./routes/attendanceRoutes");
-const authRoutes = require("./routes/authRoutes");
-
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/offices", officeRoutes);
 app.use("/api/v1/attendance", attendanceRoutes);
 
 /* =======================
-   TEST
+   HEALTH CHECK (WAJIB)
 ======================= */
 app.get("/", (req, res) => {
-   res.send("🚀 API Running...");
+   res.status(200).send("🚀 API Attendance Running (Railway)");
 });
 
 app.get("/health", (req, res) => {
-   res.json({
+   res.status(200).json({
       success: true,
       message: "Server sehat 💚",
+      uptime: process.uptime(),
+      timestamp: new Date(),
    });
 });
 
 /* =======================
-   404
+   404 HANDLER
 ======================= */
 app.use((req, res) => {
    res.status(404).json({
       success: false,
       message: "Endpoint tidak ditemukan ❌",
+      path: req.originalUrl,
    });
 });
 
 /* =======================
-   ERROR HANDLER
+   GLOBAL ERROR HANDLER
 ======================= */
 app.use((err, req, res, next) => {
    console.error("🔥 ERROR GLOBAL:", err);
@@ -71,10 +103,21 @@ app.use((err, req, res, next) => {
 });
 
 /* =======================
-   START
+   HANDLE CRASH (IMPORTANT)
+======================= */
+process.on("unhandledRejection", (err) => {
+   console.error("🔥 Unhandled Rejection:", err);
+});
+
+process.on("uncaughtException", (err) => {
+   console.error("🔥 Uncaught Exception:", err);
+});
+
+/* =======================
+   START SERVER
 ======================= */
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-   console.log(`🔥 Server running on http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+   console.log(`🚀 Server running on port ${PORT}`);
 });

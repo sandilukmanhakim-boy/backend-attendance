@@ -1,41 +1,67 @@
 const { Pool } = require("pg");
 
+/* =======================
+   CREATE POOL
+======================= */
 const pool = new Pool({
-    user: process.env.DB_USER || "hrsandi",
-    host: process.env.DB_HOST || "hr_postgres",
-    database: process.env.DB_NAME || "hrdb",
-    password: process.env.DB_PASSWORD || "123456",
-    port: process.env.DB_PORT || 5432,
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === "production"
+        ? { rejectUnauthorized: false }
+        : false,
+
+    // 🔥 OPTIMASI CONNECTION
+    max: 10, // max koneksi
+    idleTimeoutMillis: 30000, // idle timeout
+    connectionTimeoutMillis: 10000, // timeout koneksi
 });
 
-// 🔥 FUNCTION CONNECT + RETRY
+/* =======================
+   TEST CONNECTION
+======================= */
 const connectDB = async () => {
-    let retries = 5;
+    try {
+        const client = await pool.connect();
+        await client.query("SELECT NOW()");
+        client.release();
 
-    while (retries) {
-        try {
-            await pool.query("SELECT 1");
-            console.log("✅ PostgreSQL Connected");
-            break;
-        } catch (err) {
-            console.log(`⏳ Tunggu DB... (${retries})`);
-            retries--;
-            await new Promise(res => setTimeout(res, 3000));
-        }
-    }
+        console.log("✅ PostgreSQL Connected (Railway Ready)");
+    } catch (err) {
+        console.error("❌ DB Connection Error:", err.message);
 
-    if (!retries) {
-        console.error("❌ DB Gagal connect setelah retry");
-        process.exit(1); // 🔥 penting: stop container kalau DB gagal
+        // ⚠️ JANGAN langsung exit (biar Railway retry)
+        setTimeout(connectDB, 5000);
     }
 };
 
-// 🔥 PANGGIL SAAT START
+/* =======================
+   AUTO CONNECT
+======================= */
 connectDB();
 
-// OPTIONAL: DEBUG ERROR GLOBAL DB
+/* =======================
+   GLOBAL POOL ERROR
+======================= */
 pool.on("error", (err) => {
-    console.error("🔥 PostgreSQL Pool Error:", err);
+    console.error("🔥 PostgreSQL Pool Error:", err.message);
 });
 
-module.exports = pool;
+/* =======================
+   SAFE QUERY WRAPPER (OPTIONAL 🔥)
+======================= */
+const query = async (text, params) => {
+    try {
+        const res = await pool.query(text, params);
+        return res;
+    } catch (err) {
+        console.error("🔥 Query Error:", err.message);
+        throw err;
+    }
+};
+
+/* =======================
+   EXPORT
+======================= */
+module.exports = {
+    pool,
+    query, // pakai ini biar aman
+};
