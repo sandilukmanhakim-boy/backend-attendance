@@ -4,21 +4,26 @@ const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 
-// 🔐 AUTH MIDDLEWARE
+// 🔐 MIDDLEWARE AUTH
 const authMiddleware = require("../middleware/authMiddleware");
 
 // 🎮 CONTROLLER
 const attendanceController = require("../controllers/attendanceController");
 
 
-// 📁 PASTIKAN FOLDER UPLOAD ADA
+// ==========================
+// 📁 SETUP UPLOAD FOLDER
+// ==========================
 const uploadDir = path.join(__dirname, "../uploads");
 
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// 📦 STORAGE CONFIG
+
+// ==========================
+// 📦 MULTER CONFIG
+// ==========================
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, uploadDir);
@@ -29,16 +34,15 @@ const storage = multer.diskStorage({
     },
 });
 
-// 🛡️ FILTER FILE (OPTIONAL BIAR LEBIH AMAN)
+// 🛡️ VALIDASI FILE (HANYA GAMBAR)
 const fileFilter = (req, file, cb) => {
-    if (file.mimetype.startsWith("image/")) {
-        cb(null, true);
-    } else {
-        cb(new Error("File harus berupa gambar"), false);
+    if (!file.mimetype.startsWith("image/")) {
+        return cb(new Error("File harus berupa gambar"), false);
     }
+    cb(null, true);
 };
 
-// 🚀 MULTER INIT
+// 🚀 INIT MULTER
 const upload = multer({
     storage,
     fileFilter,
@@ -49,19 +53,81 @@ const upload = multer({
 
 
 // ==========================
+// 🛡️ HANDLE ERROR MULTER
+// ==========================
+const uploadMiddleware = (req, res, next) => {
+    const singleUpload = upload.single("photo");
+
+    singleUpload(req, res, function (err) {
+        if (err instanceof multer.MulterError) {
+            return res.status(400).json({
+                success: false,
+                message: "File terlalu besar (max 2MB)",
+            });
+        } else if (err) {
+            return res.status(400).json({
+                success: false,
+                message: err.message,
+            });
+        }
+        next();
+    });
+};
+
+
+// ==========================
 // 🚀 ROUTES
 // ==========================
 
-// ✅ CHECK-IN (PROTECTED)
+// ✅ TEST API (BROWSER)
+router.get("/test", (req, res) => {
+    res.json({
+        success: true,
+        message: "API attendance aktif 🚀",
+    });
+});
+
+// ✅ HEALTH CHECK (OPTIONAL)
+router.get("/health", (req, res) => {
+    res.json({
+        status: "OK",
+        service: "attendance",
+    });
+});
+
+
+// ==========================
+// 🔐 PROTECTED ROUTES
+// ==========================
+
+// ✅ CHECK-IN
 router.post(
     "/checkin",
-    authMiddleware,              // 🔥 WAJIB ADA
-    upload.single("photo"),     // 🔥 upload file
+    authMiddleware,
+    uploadMiddleware,
     attendanceController.checkIn
 );
 
+// 🔥 CHECK-OUT
+router.post(
+    "/checkout",
+    authMiddleware,
+    attendanceController.checkOut
+);
 
-// (Optional nanti kamu bisa tambah)
-// router.post("/checkout", authMiddleware, upload.single("photo"), attendanceController.checkOut);
 
+// ==========================
+// ❌ HANDLE ROUTE TIDAK ADA
+// ==========================
+router.use((req, res) => {
+    return res.status(404).json({
+        success: false,
+        message: "Endpoint tidak ditemukan",
+    });
+});
+
+
+// ==========================
+// 📦 EXPORT
+// ==========================
 module.exports = router;
