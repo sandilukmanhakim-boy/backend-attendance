@@ -1,75 +1,24 @@
-const db = require("../config/db");
-const { getDistanceInMeters } = require("../utils/distance");
+const { pool } = require("../config/db");
 
 /* =========================
-   CHECK-IN ATTENDANCE
+   CREATE EMPLOYEE
 ========================= */
-exports.checkIn = async (req, res, next) => {
+exports.createEmployee = async (req, res, next) => {
     try {
-        const userId = req.user.id;
-        const { latitude, longitude } = req.body;
+        const { name, email, password, role } = req.body;
 
-        // VALIDASI INPUT
-        if (!latitude || !longitude) {
-            return res.status(400).json({
-                success: false,
-                message: "Latitude & Longitude wajib diisi",
-            });
-        }
-
-        // AMBIL DATA KANTOR
-        const officeResult = await db.query(
-            "SELECT * FROM offices LIMIT 1"
-        );
-
-        if (officeResult.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: "Lokasi kantor belum diset",
-            });
-        }
-
-        const office = officeResult.rows[0];
-
-        if (!office.latitude || !office.longitude) {
-            return res.status(400).json({
-                success: false,
-                message: "Koordinat kantor tidak valid",
-            });
-        }
-
-        // HITUNG JARAK
-        const distance = getDistanceInMeters(
-            latitude,
-            longitude,
-            office.latitude,
-            office.longitude
-        );
-
-        const isInside = distance <= 500;
-        const status = isInside ? "inside" : "outside";
-
-        // SIMPAN ATTENDANCE
-        const result = await db.query(
-            `INSERT INTO attendances 
-            (user_id, latitude, longitude, status, distance)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING *`,
-            [userId, latitude, longitude, status, distance]
+        const result = await pool.query(
+            `INSERT INTO users (name, email, password, role)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, name, email, role`,
+            [name, email, password, role || "employee"]
         );
 
         res.json({
             success: true,
-            message: isInside
-                ? "Berada dalam radius kantor"
-                : "Di luar radius kantor",
-            data: {
-                attendance: result.rows[0],
-                distance: Math.round(distance),
-                status,
-            },
+            message: "Employee berhasil dibuat",
+            data: result.rows[0],
         });
-
     } catch (err) {
         next(err);
     }
@@ -77,24 +26,128 @@ exports.checkIn = async (req, res, next) => {
 
 
 /* =========================
-   GET HISTORY ATTENDANCE
+   GET ALL EMPLOYEES
 ========================= */
-exports.getMyAttendance = async (req, res, next) => {
+exports.getEmployees = async (req, res, next) => {
     try {
-        const userId = req.user.id;
-
-        const result = await db.query(
-            `SELECT * FROM attendances
-             WHERE user_id = $1
-             ORDER BY created_at DESC`,
-            [userId]
+        const result = await pool.query(
+            `SELECT id, name, email, role FROM users ORDER BY id DESC`
         );
 
         res.json({
             success: true,
             data: result.rows,
         });
+    } catch (err) {
+        next(err);
+    }
+};
 
+
+/* =========================
+   UPDATE EMPLOYEE
+========================= */
+exports.updateEmployee = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { name, email, role } = req.body;
+
+        const result = await pool.query(
+            `UPDATE users
+       SET name=$1, email=$2, role=$3
+       WHERE id=$4
+       RETURNING id, name, email, role`,
+            [name, email, role, id]
+        );
+
+        res.json({
+            success: true,
+            message: "Employee berhasil diupdate",
+            data: result.rows[0],
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+/* =========================
+   DELETE EMPLOYEE
+========================= */
+exports.deleteEmployee = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        await pool.query(`DELETE FROM users WHERE id=$1`, [id]);
+
+        res.json({
+            success: true,
+            message: "Employee berhasil dihapus",
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+/* =========================
+   SET OFFICE LOCATION
+========================= */
+exports.setOffice = async (req, res, next) => {
+    try {
+        const { latitude, longitude } = req.body;
+
+        // hapus dulu (biar cuma 1 office)
+        await pool.query("DELETE FROM offices");
+
+        const result = await pool.query(
+            `INSERT INTO offices (latitude, longitude)
+       VALUES ($1, $2)
+       RETURNING *`,
+            [latitude, longitude]
+        );
+
+        res.json({
+            success: true,
+            message: "Lokasi kantor berhasil diset",
+            data: result.rows[0],
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+/* =========================
+   GET OFFICE
+========================= */
+exports.getOffice = async (req, res, next) => {
+    try {
+        const result = await pool.query("SELECT * FROM offices LIMIT 1");
+
+        res.json({
+            success: true,
+            data: result.rows[0] || null,
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+/* =========================
+   GET ALL ATTENDANCE
+========================= */
+exports.getAttendance = async (req, res, next) => {
+    try {
+        const result = await pool.query(
+            `SELECT * FROM attendances ORDER BY created_at DESC`
+        );
+
+        res.json({
+            success: true,
+            data: result.rows,
+        });
     } catch (err) {
         next(err);
     }

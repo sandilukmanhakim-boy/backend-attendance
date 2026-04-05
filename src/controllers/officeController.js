@@ -1,4 +1,4 @@
-const pool = require("../db");
+const { pool } = require("../db");
 
 exports.getOffices = async (req, res) => {
     try {
