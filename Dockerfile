@@ -36,4 +36,4 @@ EXPOSE 3000
 # ===============================
 # ▶️ START APP
 # ===============================
-CMD ["node", "src/index.js"]
+CMD ["node", "src/server.js"]
