@@ -1,3 +1,4 @@
+console.log("🔥 SERVER FINAL JALAN 🔥");
 require("dotenv").config();
 
 const app = require("./app");
