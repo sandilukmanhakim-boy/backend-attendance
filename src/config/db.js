@@ -68,7 +68,19 @@ const query = async (text, params) => {
     }
 };
 
+const connectDB = async () => {
+    try {
+        const client = await pool.connect();
+        console.log("🚀 Database ready");
+        client.release();
+    } catch (err) {
+        console.error("❌ Failed to connect DB:", err.message);
+        process.exit(1);
+    }
+};
+
 module.exports = {
     query,
     pool,
+    connectDB,
 };
