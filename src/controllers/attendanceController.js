@@ -126,7 +126,7 @@ const checkOut = async (req, res) => {
 
         const attendance = today.rows[0];
 
-        if (attendance.check_out_time) {
+        if (attendances.check_out_time) {
             return res.status(400).json({
                 success: false,
                 message: "Sudah check-out"
@@ -138,7 +138,7 @@ const checkOut = async (req, res) => {
              SET check_out_time = NOW()
              WHERE id = $1
              RETURNING *`,
-            [attendance.id]
+            [attendances.id]
         );
 
         res.json({
@@ -181,5 +181,5 @@ const getMyAttendance = async (req, res) => {
 module.exports = {
     checkIn,
     checkOut,
-    getMyAttendance,
+    this.getMyAttendances,
 };

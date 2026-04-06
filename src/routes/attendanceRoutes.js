@@ -15,7 +15,7 @@ const attendanceController = require("../controllers/attendanceController");
 router.post(
     "/checkin",
     verifyToken,
-    allowRoles("EMPLOYEE", "ADMIN", "HR"),
+    allowRoles("employee", "admin", "hr"),
     upload.single("photo"),
     attendanceController.checkIn
 );
@@ -26,7 +26,7 @@ router.post(
 router.post(
     "/checkout",
     verifyToken,
-    allowRoles("EMPLOYEE", "ADMIN", "HR"),
+    allowRoles("employee", "admin", "hr"),
     attendanceController.checkOut
 );
 
@@ -36,7 +36,7 @@ router.post(
 router.get(
     "/history",
     verifyToken,
-    allowRoles("EMPLOYEE", "ADMIN", "HR"),
+    allowRoles("employee", "admin", "hr"),
     attendanceController.getMyAttendance
 );
 
