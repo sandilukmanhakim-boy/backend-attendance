@@ -5,10 +5,10 @@ const { verifyToken } = require("../middleware/authMiddleware");
 const role = require("../middleware/roleMiddleware");
 
 // 🔥 EMPLOYEE
-router.post("/employee", verifyToken, role("admin"), controller.createEmployee);
-router.get("/employee", verifyToken, role("admin"), controller.getEmployees);
-router.put("/employee/:id", verifyToken, role("admin"), controller.updateEmployee);
-router.delete("/employee/:id", verifyToken, role("admin"), controller.deleteEmployee);
+router.post("/employees", verifyToken, role("admin"), controller.createEmployees);
+router.get("/employees", verifyToken, role("admin"), controller.getEmployees);
+router.put("/employees/:id", verifyToken, role("admin"), controller.updateEmployees);
+router.delete("/employees/:id", verifyToken, role("admin"), controller.deleteEmployees);
 
 // 🔥 OFFICE
 router.post("/office", verifyToken, role("admin"), controller.setOffice);

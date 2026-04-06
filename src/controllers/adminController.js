@@ -51,6 +51,7 @@ exports.updateEmployee = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { name, email, role } = req.body;
+        const role = req.body.role?.toLowerCase();
 
         const result = await pool.query(
             `UPDATE users

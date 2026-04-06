@@ -9,6 +9,7 @@ exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
+        const role = req.body.role?.toLowerCase();
         // VALIDASI
         if (!email || !password) {
             return res.status(400).json({
