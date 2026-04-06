@@ -4,7 +4,7 @@ const bcrypt = require("bcryptjs");
 // ==============================
 // 🔥 CREATE EMPLOYEE
 // ==============================
-const createEmployee = async (req, res) => {
+const createEmployees = async (req, res) => {
     try {
         const { name, email, password } = req.body;
 
@@ -236,5 +236,5 @@ module.exports = {
     deleteEmployees,
     setOffices,
     getOffices,
-    getAttendances,
+    getAttendance,
 };
