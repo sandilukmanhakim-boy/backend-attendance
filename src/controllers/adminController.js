@@ -1,154 +1,240 @@
 const { pool } = require("../config/db");
+const bcrypt = require("bcrypt");
 
-/* =========================
-   CREATE EMPLOYEE
-========================= */
-exports.createEmployee = async (req, res, next) => {
+// ==============================
+// 🔥 CREATE EMPLOYEE
+// ==============================
+const createEmployee = async (req, res) => {
     try {
-        const { name, email, password, role } = req.body;
+        const { name, email, password } = req.body;
 
+        // ✅ FIX ROLE (NO ERROR LAGI)
+        const userRole = req.body.role?.toLowerCase() || "employee";
+
+        // VALIDASI
+        if (!name || !email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "Semua field wajib diisi",
+            });
+        }
+
+        // VALIDASI ROLE
+        const allowedRoles = ["admin", "hr", "employee"];
+        if (!allowedRoles.includes(userRole)) {
+            return res.status(400).json({
+                success: false,
+                message: "Role tidak valid",
+            });
+        }
+
+        // HASH PASSWORD
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // INSERT
         const result = await pool.query(
-            `INSERT INTO users (name, email, password, role)
+            `INSERT INTO employees (name, email, password, role)
        VALUES ($1, $2, $3, $4)
-       RETURNING id, name, email, role`,
-            [name, email, password, role || "employee"]
+       RETURNING id, name, email, role, created_at`,
+            [name, email, hashedPassword, userRole]
         );
 
-        res.json({
+        return res.json({
             success: true,
             message: "Employee berhasil dibuat",
             data: result.rows[0],
         });
+
     } catch (err) {
-        next(err);
+        console.error("CREATE EMPLOYEE ERROR:", err.message);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+        });
     }
 };
 
-
-/* =========================
-   GET ALL EMPLOYEES
-========================= */
-exports.getEmployees = async (req, res, next) => {
+// ==============================
+// 📋 GET ALL EMPLOYEES
+// ==============================
+const getEmployees = async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT id, name, email, role FROM users ORDER BY id DESC`
+            `SELECT id, name, email, role, created_at
+       FROM employees
+       ORDER BY id DESC`
         );
 
-        res.json({
+        return res.json({
             success: true,
             data: result.rows,
         });
+
     } catch (err) {
-        next(err);
+        console.error("GET EMPLOYEES ERROR:", err.message);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+        });
     }
 };
 
-
-/* =========================
-   UPDATE EMPLOYEE
-========================= */
-exports.updateEmployee = async (req, res, next) => {
+// ==============================
+// ✏️ UPDATE EMPLOYEE
+// ==============================
+const updateEmployee = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, email, role } = req.body;
+        const { name, email, password } = req.body;
+
+        const userRole = req.body.role?.toLowerCase();
+
+        // VALIDASI ROLE
+        if (userRole) {
+            const allowedRoles = ["admin", "hr", "employee"];
+            if (!allowedRoles.includes(userRole)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Role tidak valid",
+                });
+            }
+        }
+
+        let hashedPassword = null;
+        if (password) {
+            hashedPassword = await bcrypt.hash(password, 10);
+        }
 
         const result = await pool.query(
-            `UPDATE users
-       SET name=$1, email=$2, role=$3
-       WHERE id=$4
+            `UPDATE employees
+       SET name = COALESCE($1, name),
+           email = COALESCE($2, email),
+           password = COALESCE($3, password),
+           role = COALESCE($4, role)
+       WHERE id = $5
        RETURNING id, name, email, role`,
-            [name, email, role, id]
+            [name, email, hashedPassword, userRole, id]
         );
 
-        res.json({
+        return res.json({
             success: true,
             message: "Employee berhasil diupdate",
             data: result.rows[0],
         });
+
     } catch (err) {
-        next(err);
+        console.error("UPDATE EMPLOYEE ERROR:", err.message);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+        });
     }
 };
 
-
-/* =========================
-   DELETE EMPLOYEE
-========================= */
-exports.deleteEmployee = async (req, res, next) => {
+// ==============================
+// ❌ DELETE EMPLOYEE
+// ==============================
+const deleteEmployee = async (req, res) => {
     try {
         const { id } = req.params;
 
-        await pool.query(`DELETE FROM users WHERE id=$1`, [id]);
+        await pool.query(`DELETE FROM employees WHERE id = $1`, [id]);
 
-        res.json({
+        return res.json({
             success: true,
             message: "Employee berhasil dihapus",
         });
+
     } catch (err) {
-        next(err);
+        console.error("DELETE EMPLOYEE ERROR:", err.message);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+        });
     }
 };
 
-
-/* =========================
-   SET OFFICE LOCATION
-========================= */
-exports.setOffice = async (req, res, next) => {
+// ==============================
+// 🏢 OFFICE
+// ==============================
+const setOffice = async (req, res) => {
     try {
-        const { latitude, longitude } = req.body;
+        const { latitude, longitude, radius } = req.body;
 
-        // hapus dulu (biar cuma 1 office)
-        await pool.query("DELETE FROM offices");
+        await pool.query(`DELETE FROM offices`);
 
         const result = await pool.query(
-            `INSERT INTO offices (latitude, longitude)
-       VALUES ($1, $2)
+            `INSERT INTO offices (latitude, longitude, radius)
+       VALUES ($1, $2, $3)
        RETURNING *`,
-            [latitude, longitude]
+            [latitude, longitude, radius]
         );
 
-        res.json({
+        return res.json({
             success: true,
-            message: "Lokasi kantor berhasil diset",
+            message: "Office berhasil diset",
             data: result.rows[0],
         });
+
     } catch (err) {
-        next(err);
+        console.error("SET OFFICE ERROR:", err.message);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+        });
     }
 };
 
-
-/* =========================
-   GET OFFICE
-========================= */
-exports.getOffice = async (req, res, next) => {
+const getOffice = async (req, res) => {
     try {
-        const result = await pool.query("SELECT * FROM offices LIMIT 1");
+        const result = await pool.query(`SELECT * FROM offices LIMIT 1`);
 
-        res.json({
+        return res.json({
             success: true,
             data: result.rows[0] || null,
         });
+
     } catch (err) {
-        next(err);
+        console.error("GET OFFICE ERROR:", err.message);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+        });
     }
 };
 
-
-/* =========================
-   GET ALL ATTENDANCE
-========================= */
-exports.getAttendance = async (req, res, next) => {
+// ==============================
+// 📊 GET ATTENDANCE (ADMIN/HR)
+// ==============================
+const getAttendance = async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT * FROM attendances ORDER BY created_at DESC`
+            `SELECT a.*, e.name, e.email
+       FROM attendances a
+       JOIN employees e ON a.employee_id = e.id
+       ORDER BY a.created_at DESC`
         );
 
-        res.json({
+        return res.json({
             success: true,
             data: result.rows,
         });
+
     } catch (err) {
-        next(err);
+        console.error("GET ATTENDANCE ERROR:", err.message);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+        });
     }
+};
+
+module.exports = {
+    createEmployee,
+    getEmployees,
+    updateEmployee,
+    deleteEmployee,
+    setOffice,
+    getOffice,
+    getAttendance,
 };
