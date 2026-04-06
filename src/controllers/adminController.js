@@ -41,12 +41,12 @@ const createEmployees = async (req, res) => {
 
         return res.json({
             success: true,
-            message: "Employee berhasil dibuat",
+            message: "Employees berhasil dibuat",
             data: result.rows[0],
         });
 
     } catch (err) {
-        console.error("CREATE EMPLOYEE ERROR:", err.message);
+        console.error("CREATE EMPLOYEES ERROR:", err.message);
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
@@ -82,7 +82,7 @@ const getEmployees = async (req, res) => {
 // ==============================
 // ✏️ UPDATE EMPLOYEE
 // ==============================
-const updateEmployee = async (req, res) => {
+const updateEmployees = async (req, res) => {
     try {
         const { id } = req.params;
         const { name, email, password } = req.body;
@@ -118,12 +118,12 @@ const updateEmployee = async (req, res) => {
 
         return res.json({
             success: true,
-            message: "Employee berhasil diupdate",
+            message: "Employees berhasil diupdate",
             data: result.rows[0],
         });
 
     } catch (err) {
-        console.error("UPDATE EMPLOYEE ERROR:", err.message);
+        console.error("UPDATE EMPLOYEES ERROR:", err.message);
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
@@ -134,7 +134,7 @@ const updateEmployee = async (req, res) => {
 // ==============================
 // ❌ DELETE EMPLOYEE
 // ==============================
-const deleteEmployee = async (req, res) => {
+const deleteEmployees = async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -142,11 +142,11 @@ const deleteEmployee = async (req, res) => {
 
         return res.json({
             success: true,
-            message: "Employee berhasil dihapus",
+            message: "Employees berhasil dihapus",
         });
 
     } catch (err) {
-        console.error("DELETE EMPLOYEE ERROR:", err.message);
+        console.error("DELETE EMPLOYEES ERROR:", err.message);
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
@@ -157,7 +157,7 @@ const deleteEmployee = async (req, res) => {
 // ==============================
 // 🏢 OFFICE
 // ==============================
-const setOffice = async (req, res) => {
+const setOffices = async (req, res) => {
     try {
         const { latitude, longitude, radius } = req.body;
 
@@ -172,7 +172,7 @@ const setOffice = async (req, res) => {
 
         return res.json({
             success: true,
-            message: "Office berhasil diset",
+            message: "Offices berhasil diset",
             data: result.rows[0],
         });
 
@@ -185,7 +185,7 @@ const setOffice = async (req, res) => {
     }
 };
 
-const getOffice = async (req, res) => {
+const getOffices = async (req, res) => {
     try {
         const result = await pool.query(`SELECT * FROM offices LIMIT 1`);
 
@@ -195,7 +195,7 @@ const getOffice = async (req, res) => {
         });
 
     } catch (err) {
-        console.error("GET OFFICE ERROR:", err.message);
+        console.error("GET OFFICES ERROR:", err.message);
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
@@ -206,7 +206,7 @@ const getOffice = async (req, res) => {
 // ==============================
 // 📊 GET ATTENDANCE (ADMIN/HR)
 // ==============================
-const getAttendance = async (req, res) => {
+const getAttendances = async (req, res) => {
     try {
         const result = await pool.query(
             `SELECT a.*, e.name, e.email
@@ -221,7 +221,7 @@ const getAttendance = async (req, res) => {
         });
 
     } catch (err) {
-        console.error("GET ATTENDANCE ERROR:", err.message);
+        console.error("GET ATTENDANCES ERROR:", err.message);
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
@@ -236,5 +236,5 @@ module.exports = {
     deleteEmployees,
     setOffices,
     getOffices,
-    getAttendance,
+    thisgetAttendances,
 };
