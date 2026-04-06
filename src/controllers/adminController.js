@@ -55,7 +55,7 @@ const createEmployee = async (req, res) => {
 };
 
 // ==============================
-// 📋 GET ALL EMPLOYEES
+// 📋 GET ALL EMPLOYEE
 // ==============================
 const getEmployees = async (req, res) => {
     try {
@@ -230,11 +230,11 @@ const getAttendance = async (req, res) => {
 };
 
 module.exports = {
-    createEmployee,
+    createEmployees,
     getEmployees,
-    updateEmployee,
-    deleteEmployee,
-    setOffice,
-    getOffice,
-    getAttendance,
+    updateEmployees,
+    deleteEmployees,
+    setOffices,
+    getOffices,
+    getAttendances,
 };
